@@ -819,7 +819,7 @@ function doPrint(mode){
   var doc = ifr.contentDocument || ifr.contentWindow.document;
   doc.open();
   doc.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8">');
-  doc.write('<'+'style>' + css + 'body{margin:0;padding:0;background:#fff;}<'+'/style>');
+  doc.write('<'+'style>' + css + 'body{margin:0;padding:0;background:#fff;direction:rtl;}.pr-table{direction:rtl;table-layout:fixed;}<'+'/style>');
   doc.write('</head><body>');
   doc.write(content);
   doc.write('</body></html>');
@@ -1444,10 +1444,10 @@ function initNotes(){
           <th><div class="pr-rot">اللوحات</div></th>
           <th><div class="pr-rot">الجولات التوعوية</div></th>
           <th><div class="pr-rot">توزيع المواد</div></th>
-          <th><div class="pr-rot">الكلمات التوجيهية</div></th>
           <th><div class="pr-rot">المصلى المتنقل</div></th>
           <th><div class="pr-rot">الزيارات</div></th>
           <th><div class="pr-rot">اللقاءات</div></th>
+          <th><div class="pr-rot">الكلمات التوجيهية</div></th>
           <th><div class="pr-rot">المجموع</div></th>
           <th><div class="pr-rot">إجمالي المستفيدين</div></th>
           <th><div class="pr-rot">أخرى</div></th>
