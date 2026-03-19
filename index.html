@@ -817,123 +817,134 @@ function doPrint(mode){
         format: 'a4'
       });
 
-      var pageW = pdf.internal.pageSize.getWidth(); // 297
-      var pageH = pdf.internal.pageSize.getHeight(); // 210
+      var pageW = pdf.internal.pageSize.getWidth();
+      var pageH = pdf.internal.pageSize.getHeight();
       var margin = 6;
       var usableW = pageW - margin * 2;
-      var usableH = pageH - margin * 2;
 
-      // نجمع بيانات الجدول
       var prTitleEl = document.getElementById('pr-title');
-      var prDateEl = document.getElementById('pr-date');
-      var title = prTitleEl ? prTitleEl.textContent.trim() : '';
-      var dateStr = prDateEl ? prDateEl.textContent.trim() : '';
+      var prDateEl  = document.getElementById('pr-date');
+      var title   = prTitleEl ? prTitleEl.textContent.trim() : '';
+      var dateStr = prDateEl  ? prDateEl.textContent.trim()  : '';
 
-      // نحدد الأعمدة
-      var colHeaders = ['الهيئات'];
-      FIELDS.forEach(function(f){ colHeaders.push(f); });
-      colHeaders.push('مجموع');
-      colHeaders.push('مستفيدين');
+      // أعمدة البيانات
+      var dataHeaders = [];
+      FIELDS.forEach(function(f){ dataHeaders.push(f); });
+      dataHeaders.push('مجموع');
+      dataHeaders.push('مستفيدين');
 
-      // نحدد عرض كل عمود
-      var nameColW = 40;
-      var dataColW = (usableW - nameColW) / (colHeaders.length - 1);
-
-      // نجمع الصفوف
+      // صفوف البيانات
       var tableRows = [];
       rows.forEach(function(row){
         var r = [row.name || ''];
-        FIELDS.forEach(function(f){ r.push(row[f] || ''); });
-        r.push(row.total || '');
-        r.push(row.beneficiaries || '');
+        FIELDS.forEach(function(f){ r.push(String(row[f]||'')); });
+        r.push(String(row.total||''));
+        r.push(String(row.beneficiaries||''));
         tableRows.push(r);
       });
-      // صف المجموع
       var sumRow = ['المجموع'];
       FIELDS.forEach(function(f){
-        sumRow.push(rows.reduce(function(a,r){ return a+(r[f]||0); }, 0));
+        sumRow.push(String(rows.reduce(function(a,r){return a+(r[f]||0);},0)));
       });
-      sumRow.push(rows.reduce(function(a,r){ return a+(r.total||0); }, 0));
-      sumRow.push(rows.reduce(function(a,r){ return a+(r.beneficiaries||0); }, 0));
+      sumRow.push(String(rows.reduce(function(a,r){return a+(r.total||0);},0)));
+      sumRow.push(String(rows.reduce(function(a,r){return a+(r.beneficiaries||0);},0)));
       tableRows.push(sumRow);
 
-      // نرسم العنوان
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(11);
-      pdf.setR2L(true);
-      var y = margin;
-      pdf.rect(margin, y, usableW, 8);
-      pdf.text(title, pageW - margin - 2, y + 5.5, {align:'right'});
-      y += 8;
-
-      // نرسم التاريخ
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      pdf.rect(margin, y, usableW, 6);
-      pdf.text(dateStr, pageW/2, y + 4, {align:'center'});
-      y += 6;
-
-      // نرسم رأس "المناشط"
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(9);
-      pdf.rect(margin + nameColW, y, usableW - nameColW, 6);
-      pdf.text('المناشط', margin + nameColW + (usableW - nameColW)/2, y + 4, {align:'center'});
-      y += 6;
-
-      // نرسم رأس الأعمدة
-      var headerH = 18;
+      // نحسب عرض عمود الأسماء تلقائياً
       pdf.setFontSize(7);
-      pdf.rect(margin, y, nameColW, headerH);
-      pdf.text('الهيئات', margin + nameColW/2, y + headerH/2 + 2, {align:'center'});
+      var maxNameW = 30;
+      tableRows.forEach(function(row){
+        var w = pdf.getStringUnitWidth(String(row[0])) * 7 * 0.352 + 4;
+        if(w > maxNameW) maxNameW = w;
+      });
+      maxNameW = Math.min(maxNameW, usableW * 0.35);
 
-      for(var ci = 1; ci < colHeaders.length; ci++){
-        var cx = margin + nameColW + (ci-1) * dataColW;
+      var numCols = dataHeaders.length;
+      var dataColW = (usableW - maxNameW) / numCols;
+      var headerH = 22;
+      var rowH = 7;
+
+      var y = margin;
+
+      // عنوان التقرير
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica','bold');
+      pdf.rect(margin, y, usableW, 7);
+      pdf.setR2L(true);
+      pdf.text(title, pageW - margin - 2, y + 5, {align:'right'});
+      y += 7;
+
+      // التاريخ
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica','normal');
+      pdf.rect(margin, y, usableW, 5);
+      pdf.text(dateStr, pageW/2, y + 3.5, {align:'center'});
+      y += 5;
+
+      // رأس "المناشط"
+      pdf.setFont('helvetica','bold');
+      pdf.setFontSize(8);
+      pdf.rect(margin + maxNameW, y, usableW - maxNameW, 5);
+      pdf.text('المناشط', margin + maxNameW + (usableW-maxNameW)/2, y+3.5, {align:'center'});
+      y += 5;
+
+      // رأس الأعمدة
+      // خلية الهيئات
+      pdf.setFontSize(8);
+      pdf.rect(margin, y, maxNameW, headerH);
+      pdf.text('الهيئات', margin + maxNameW/2, y + headerH/2 + 1.5, {align:'center'});
+
+      // أعمدة البيانات - نص رأسي من الأعلى للأسفل
+      pdf.setFontSize(6.5);
+      for(var ci = 0; ci < dataHeaders.length; ci++){
+        var cx = margin + maxNameW + ci * dataColW;
         pdf.rect(cx, y, dataColW, headerH);
-        // نكتب النص بشكل عمودي باستخدام rotation
+        // نرسم النص رأسياً من الأعلى للأسفل
         pdf.saveGraphicsState();
-        pdf.text(colHeaders[ci], cx + dataColW/2 + 3, y + headerH - 2, {
-          angle: 90,
-          align: 'left'
-        });
+        // نحرك نقطة الرسم لمنتصف العمود ثم نكتب بزاوية -90
+        pdf.text(dataHeaders[ci],
+          cx + dataColW/2 + 1.5,
+          y + 2,
+          {angle: -90, align: 'left'}
+        );
         pdf.restoreGraphicsState();
       }
       y += headerH;
 
-      // نرسم صفوف البيانات
-      var rowH = (usableH - y + margin) / tableRows.length;
-      rowH = Math.max(rowH, 6);
-      rowH = Math.min(rowH, 10);
-
-      pdf.setFont('helvetica', 'normal');
+      // صفوف البيانات
+      pdf.setFont('helvetica','normal');
       pdf.setFontSize(7);
 
       tableRows.forEach(function(row, ri){
         var isSum = ri === tableRows.length - 1;
         if(isSum){
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFillColor(216, 216, 216);
+          pdf.setFont('helvetica','bold');
+          pdf.setFillColor(216,216,216);
         } else if(ri % 2 === 1){
-          pdf.setFillColor(245, 245, 245);
+          pdf.setFillColor(245,245,245);
         } else {
-          pdf.setFillColor(255, 255, 255);
+          pdf.setFillColor(255,255,255);
         }
 
-        pdf.rect(margin, y, nameColW, rowH, 'FD');
-        var nameText = String(row[0]);
-        pdf.text(nameText, margin + nameColW - 1, y + rowH/2 + 2, {align:'right', maxWidth: nameColW - 2});
+        // خلية الاسم
+        pdf.rect(margin, y, maxNameW, rowH, 'FD');
+        pdf.setR2L(true);
+        pdf.text(String(row[0]), margin + maxNameW - 1, y + rowH/2 + 1.5, {align:'right'});
 
+        // خلايا البيانات
+        pdf.setR2L(false);
         for(var ci = 1; ci < row.length; ci++){
-          var cx = margin + nameColW + (ci-1) * dataColW;
+          var cx = margin + maxNameW + (ci-1) * dataColW;
           pdf.rect(cx, y, dataColW, rowH, 'FD');
-          if(row[ci] !== '' && row[ci] !== 0 && row[ci] !== '0'){
-            pdf.text(String(row[ci]), cx + dataColW/2, y + rowH/2 + 2, {align:'center'});
+          if(row[ci] && row[ci] !== '0'){
+            pdf.text(String(row[ci]), cx + dataColW/2, y + rowH/2 + 1.5, {align:'center'});
           }
         }
         y += rowH;
-        if(isSum) pdf.setFont('helvetica', 'normal');
+        if(isSum){ pdf.setFont('helvetica','normal'); pdf.setFillColor(255,255,255); }
       });
 
-      var fname = (title || 'تقرير المناشط') + '.pdf';
+      var fname = (title || 'تقرير') + '.pdf';
       pdf.save(fname);
     }
 
