@@ -811,73 +811,130 @@ function doPrint(mode){
   if(isMobile){
     // محاولة تحميل jsPDF + html2canvas للطباعة كـ PDF
     function tryPdfDownload(){
-      // نبني نافذة مخفية بنفس CSS الطباعة
-      var styleEl = document.querySelector('style');
-      var css = styleEl ? styleEl.innerHTML : '';
-
-      var tmp = document.createElement('div');
-      tmp.style.cssText = 'position:fixed;top:0;right:0;width:277mm;min-height:190mm;background:#fff;z-index:-9999;direction:rtl;font-family:Tajawal,sans-serif;overflow:visible;';
-
-      // نضيف style tag مع CSS الطباعة
-      var styleTag = document.createElement('style');
-      styleTag.textContent = css +
-        '.pr-page{width:277mm;padding:2mm;font-family:Tajawal,sans-serif;direction:rtl;color:#222;display:block;}' +
-        '.pr-table{width:100%;border-collapse:collapse;font-size:8pt;table-layout:fixed;}' +
-        '.pr-table thead th{background:#e8e8e8!important;border:1px solid #999;padding:2px;text-align:center;font-weight:700;vertical-align:middle;height:auto;width:auto;}' +
-        '.pr-th-name{text-align:right!important;width:22%;min-width:80px;}' +
-        '.pr-rot{writing-mode:horizontal-tb;transform:none;white-space:normal;padding:2px;text-align:center;display:block;height:auto;line-height:1.3;font-size:7pt;word-break:break-word;}' +
-        '.pr-table tbody td{border:1px solid #ccc;padding:3px 2px;text-align:center;vertical-align:middle;font-size:8pt;}' +
-        '.pr-table tbody td:first-child{text-align:right;font-size:7.5pt;}' +
-        '.pr-table tbody tr:nth-child(even){background:#f5f5f5!important;}' +
-        '.pr-sum td{background:#d8d8d8!important;font-weight:700;border:1px solid #999;text-align:center;font-size:8pt;}' +
-        '.pr-sum td:first-child{text-align:right;}' +
-        '.pr-title{border:1.5px solid #888;text-align:center;padding:4px 0;font-size:11pt;font-weight:800;margin-bottom:0;}' +
-        '.pr-date{border:1.5px solid #888;border-top:none;text-align:center;padding:3px 0;font-size:10pt;margin-bottom:0;}' +
-        '.pr-act-hdr{background:#d0d0d0!important;text-align:center;font-weight:700;font-size:9pt;border:1.5px solid #888;border-bottom:none;padding:3px;margin-top:4px;}';
-      document.head.appendChild(styleTag);
-      tmp.innerHTML = content;
-      document.body.appendChild(tmp);
-
-      // ننتظر تحميل الخطوط قبل الالتقاط
-      document.fonts.ready.then(function(){
-        html2canvas(tmp, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          width: 1048,
-          windowWidth: 1048,
-          onclone: function(clonedDoc){
-            // نضيف الخط للنسخة المستنسخة
-            var link = clonedDoc.createElement('link');
-            link.href = 'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap';
-            link.rel = 'stylesheet';
-            clonedDoc.head.appendChild(link);
-          }
-        }).then(function(canvas){
-          document.body.removeChild(tmp);
-          document.head.removeChild(styleTag);
-          var imgData = canvas.toDataURL('image/jpeg', 0.95);
-          var pdf = new jspdf.jsPDF({
-            orientation: 'landscape',
-            unit: 'mm',
-            format: 'a4'
-          });
-          var pageW = pdf.internal.pageSize.getWidth();
-          var pageH = pdf.internal.pageSize.getHeight();
-          var imgW = pageW - 12;
-          var imgH = (canvas.height * imgW) / canvas.width;
-          if(imgH > pageH - 12) imgH = pageH - 12;
-          pdf.addImage(imgData, 'JPEG', 6, 6, imgW, imgH);
-          var prTitleEl = document.getElementById('pr-title');
-          var fname = (prTitleEl ? prTitleEl.textContent.trim() : 'تقرير المناشط') + '.pdf';
-          pdf.save(fname);
-        }).catch(function(){
-          document.body.removeChild(tmp);
-          document.head.removeChild(styleTag);
-          fallbackPrint();
-        });
+      var pdf = new jspdf.jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
       });
+
+      var pageW = pdf.internal.pageSize.getWidth(); // 297
+      var pageH = pdf.internal.pageSize.getHeight(); // 210
+      var margin = 6;
+      var usableW = pageW - margin * 2;
+      var usableH = pageH - margin * 2;
+
+      // نجمع بيانات الجدول
+      var prTitleEl = document.getElementById('pr-title');
+      var prDateEl = document.getElementById('pr-date');
+      var title = prTitleEl ? prTitleEl.textContent.trim() : '';
+      var dateStr = prDateEl ? prDateEl.textContent.trim() : '';
+
+      // نحدد الأعمدة
+      var colHeaders = ['الهيئات'];
+      FIELDS.forEach(function(f){ colHeaders.push(f); });
+      colHeaders.push('مجموع');
+      colHeaders.push('مستفيدين');
+
+      // نحدد عرض كل عمود
+      var nameColW = 40;
+      var dataColW = (usableW - nameColW) / (colHeaders.length - 1);
+
+      // نجمع الصفوف
+      var tableRows = [];
+      rows.forEach(function(row){
+        var r = [row.name || ''];
+        FIELDS.forEach(function(f){ r.push(row[f] || ''); });
+        r.push(row.total || '');
+        r.push(row.beneficiaries || '');
+        tableRows.push(r);
+      });
+      // صف المجموع
+      var sumRow = ['المجموع'];
+      FIELDS.forEach(function(f){
+        sumRow.push(rows.reduce(function(a,r){ return a+(r[f]||0); }, 0));
+      });
+      sumRow.push(rows.reduce(function(a,r){ return a+(r.total||0); }, 0));
+      sumRow.push(rows.reduce(function(a,r){ return a+(r.beneficiaries||0); }, 0));
+      tableRows.push(sumRow);
+
+      // نرسم العنوان
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.setR2L(true);
+      var y = margin;
+      pdf.rect(margin, y, usableW, 8);
+      pdf.text(title, pageW - margin - 2, y + 5.5, {align:'right'});
+      y += 8;
+
+      // نرسم التاريخ
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.rect(margin, y, usableW, 6);
+      pdf.text(dateStr, pageW/2, y + 4, {align:'center'});
+      y += 6;
+
+      // نرسم رأس "المناشط"
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(9);
+      pdf.rect(margin + nameColW, y, usableW - nameColW, 6);
+      pdf.text('المناشط', margin + nameColW + (usableW - nameColW)/2, y + 4, {align:'center'});
+      y += 6;
+
+      // نرسم رأس الأعمدة
+      var headerH = 18;
+      pdf.setFontSize(7);
+      pdf.rect(margin, y, nameColW, headerH);
+      pdf.text('الهيئات', margin + nameColW/2, y + headerH/2 + 2, {align:'center'});
+
+      for(var ci = 1; ci < colHeaders.length; ci++){
+        var cx = margin + nameColW + (ci-1) * dataColW;
+        pdf.rect(cx, y, dataColW, headerH);
+        // نكتب النص بشكل عمودي باستخدام rotation
+        pdf.saveGraphicsState();
+        pdf.text(colHeaders[ci], cx + dataColW/2 + 3, y + headerH - 2, {
+          angle: 90,
+          align: 'left'
+        });
+        pdf.restoreGraphicsState();
+      }
+      y += headerH;
+
+      // نرسم صفوف البيانات
+      var rowH = (usableH - y + margin) / tableRows.length;
+      rowH = Math.max(rowH, 6);
+      rowH = Math.min(rowH, 10);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(7);
+
+      tableRows.forEach(function(row, ri){
+        var isSum = ri === tableRows.length - 1;
+        if(isSum){
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFillColor(216, 216, 216);
+        } else if(ri % 2 === 1){
+          pdf.setFillColor(245, 245, 245);
+        } else {
+          pdf.setFillColor(255, 255, 255);
+        }
+
+        pdf.rect(margin, y, nameColW, rowH, 'FD');
+        var nameText = String(row[0]);
+        pdf.text(nameText, margin + nameColW - 1, y + rowH/2 + 2, {align:'right', maxWidth: nameColW - 2});
+
+        for(var ci = 1; ci < row.length; ci++){
+          var cx = margin + nameColW + (ci-1) * dataColW;
+          pdf.rect(cx, y, dataColW, rowH, 'FD');
+          if(row[ci] !== '' && row[ci] !== 0 && row[ci] !== '0'){
+            pdf.text(String(row[ci]), cx + dataColW/2, y + rowH/2 + 2, {align:'center'});
+          }
+        }
+        y += rowH;
+        if(isSum) pdf.setFont('helvetica', 'normal');
+      });
+
+      var fname = (title || 'تقرير المناشط') + '.pdf';
+      pdf.save(fname);
     }
 
     function fallbackPrint(){
@@ -894,35 +951,21 @@ function doPrint(mode){
     }
 
     // نحمّل المكتبات إذا لم تكن موجودة
-    if(typeof html2canvas !== 'undefined' && typeof jspdf !== 'undefined'){
+    // نحتاج jsPDF فقط
+    if(typeof jspdf !== 'undefined'){
       tryPdfDownload();
     } else {
-      function loadJsPDF(){
-        var s2 = document.createElement('script');
-        s2.src = './jspdf.umd.min.js';
-        s2.onload = function(){ tryPdfDownload(); };
-        s2.onerror = function(){
-          // fallback: CDN
-          var s2b = document.createElement('script');
-          s2b.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-          s2b.onload = function(){ tryPdfDownload(); };
-          s2b.onerror = function(){ fallbackPrint(); };
-          document.head.appendChild(s2b);
-        };
-        document.head.appendChild(s2);
-      }
-      var s1 = document.createElement('script');
-      s1.src = './html2canvas.min.js';
-      s1.onload = function(){ loadJsPDF(); };
-      s1.onerror = function(){
-        // fallback: CDN
-        var s1b = document.createElement('script');
-        s1b.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-        s1b.onload = function(){ loadJsPDF(); };
-        s1b.onerror = function(){ fallbackPrint(); };
-        document.head.appendChild(s1b);
+      var s2 = document.createElement('script');
+      s2.src = './jspdf.umd.min.js';
+      s2.onload = function(){ tryPdfDownload(); };
+      s2.onerror = function(){
+        var s2b = document.createElement('script');
+        s2b.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s2b.onload = function(){ tryPdfDownload(); };
+        s2b.onerror = function(){ fallbackPrint(); };
+        document.head.appendChild(s2b);
       };
-      document.head.appendChild(s1);
+      document.head.appendChild(s2);
     }
   } else {
     // على الحاسوب: iframe مخفي
