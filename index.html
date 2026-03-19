@@ -806,30 +806,49 @@ function doPrint(mode){
   var styleEl = document.querySelector('style');
   var css = styleEl ? styleEl.innerHTML : '';
 
-  // نستخدم iframe مخفي بدل نافذة جديدة
-  var ifrId = 'print-iframe';
-  var existing = document.getElementById(ifrId);
-  if(existing) existing.remove();
+  var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-  var ifr = document.createElement('iframe');
-  ifr.id = ifrId;
-  ifr.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;';
-  document.body.appendChild(ifr);
+  if(isMobile){
+    // على الجوال: نفتح نافذة جديدة بمحتوى أفقي
+    var win = window.open('', '_blank');
+    win.document.open();
+    win.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8">');
+    win.document.write('<meta name="viewport" content="width=device-width,initial-scale=1">');
+    win.document.write('<'+'style>' + css + 'body{margin:0;padding:6mm;background:#fff;direction:rtl;}@page{size:A4 landscape;margin:6mm;}.pr-page{width:100%;}<'+'/style>');
+    win.document.write('</head><body>');
+    win.document.write(content);
+    win.document.write('<'+'style>body{font-family:Tajawal,sans-serif;}<'+'/style>');
+    win.document.write('</body></html>');
+    win.document.close();
+    setTimeout(function(){
+      win.print();
+    }, 800);
+  } else {
+    // على الحاسوب: iframe مخفي
+    var ifrId = 'print-iframe';
+    var existing = document.getElementById(ifrId);
+    if(existing) existing.remove();
 
-  var doc = ifr.contentDocument || ifr.contentWindow.document;
-  doc.open();
-  doc.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8">');
-  doc.write('<'+'style>' + css + 'body{margin:0;padding:0;background:#fff;direction:rtl;}.pr-table{direction:rtl;table-layout:fixed;}<'+'/style>');
-  doc.write('</head><body>');
-  doc.write(content);
-  doc.write('</body></html>');
-  doc.close();
+    var ifr = document.createElement('iframe');
+    ifr.id = ifrId;
+    ifr.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;';
+    document.body.appendChild(ifr);
 
-  setTimeout(function(){
-    ifr.contentWindow.focus();
-    ifr.contentWindow.print();
-    setTimeout(function(){ ifr.remove(); }, 1000);
-  }, 600);
+    var doc = ifr.contentDocument || ifr.contentWindow.document;
+    doc.open();
+    doc.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8">');
+    doc.write('<'+'style>' + css + 'body{margin:0;padding:0;background:#fff;direction:rtl;}.pr-table{direction:rtl;table-layout:fixed;}<'+'/style>');
+    doc.write('</head><body>');
+    doc.write(content);
+    doc.write('</body></html>');
+    doc.close();
+
+    setTimeout(function(){
+      ifr.contentWindow.focus();
+      ifr.contentWindow.print();
+      setTimeout(function(){ ifr.remove(); }, 1000);
+    }, 600);
+  }
 }
 
 function printLetter(){
