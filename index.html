@@ -838,30 +838,41 @@ function doPrint(mode){
 
       // نرسم رأس الجدول كـ canvas
       function drawRotatedHeaders(){
+        var iFont = new ifr.contentWindow.FontFace('Tajawal',
+          'url(https://fonts.gstatic.com/s/tajawal/v9/Iura6YBj_oCad4k1rzaLCr5IlLA.woff2)');
+        ifr.contentDocument.fonts.add(iFont);
+        iFont.load().then(function(){ _doDrawHeaders(); }).catch(function(){ _doDrawHeaders(); });
+      }
+      function _doDrawHeaders(){
         var iDoc = ifr.contentDocument;
         var thCells = iDoc.querySelectorAll('.pr-table thead th:not(.pr-th-name)');
         thCells.forEach(function(th){
           var rotDiv = th.querySelector('.pr-rot');
           var text = rotDiv ? rotDiv.textContent.trim() : th.textContent.trim();
           var canvas = iDoc.createElement('canvas');
-          canvas.width = 30;
-          canvas.height = 65;
+          canvas.width = 28;
+          canvas.height = 68;
           canvas.className = 'pr-th-canvas';
           var ctx = canvas.getContext('2d');
+          // خلفية رمادية
           ctx.fillStyle = '#e8e8e8';
-          ctx.fillRect(0, 0, 30, 65);
-          ctx.fillStyle = '#333';
-          ctx.font = 'bold 8pt Arial';
-          ctx.textAlign = 'center';
+          ctx.fillRect(0, 0, 28, 68);
+          // نستخدم Tajawal من الـ iframe
+          ctx.font = 'bold 8pt Tajawal, "Segoe UI", Tahoma, sans-serif';
+          ctx.fillStyle = '#222';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
           ctx.save();
-          ctx.translate(15, 63);
-          ctx.rotate(-Math.PI/2);
+          // نرسم من الأسفل للأعلى
+          ctx.translate(20, 66);
+          ctx.rotate(-Math.PI / 2);
           ctx.fillText(text, 0, 0);
           ctx.restore();
           th.innerHTML = '';
           th.appendChild(canvas);
         });
       }
+
 
       // ننتظر تحميل الخط ثم نلتقط
       setTimeout(function(){
